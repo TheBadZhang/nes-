@@ -171,6 +171,18 @@ void drawStr(int x, int y, const char str[], bool auto_newline = true) {
 		x_ += (w + (g_font -> spacing_x));
 	}
 }
+
+template<typename T>
+void drawGBK (const T& font, int x, int y, const char str[], bool auto_newline = true) {
+
+	for (int i = 0; i < 20; i++) {
+		int x_ = x + i%8 * 16;
+		int y_ = y + i/8 * 16;
+		screen_pic.draw1BitXBMP310(x_, y_, 16, 16, font[i].mask);
+
+	}
+}
+
 int main (int argc, char* argv[]) {
 	// �ֶ�ˢ��ģʽ
 	ege::setinitmode (INIT_RENDERMANUAL);
@@ -224,19 +236,7 @@ int main (int argc, char* argv[]) {
 		// screen_pic.draw1BitXBMP(64, 55, 32, 32, tfont32[2].mask);
 		// screen_pic.draw1BitXBMP(96, 55, 32, 32, tfont32[3].mask);
 		// screen_pic.draw1BitXBMP(128, 55, 32, 32, tfont32[4].mask);
-// extern "C" const ASCII_CHAR font5x7;
-// extern "C" const ASCII_CHAR font6x8;
-// extern "C" const ASCII_CHAR font6x12;
-// extern "C" const ASCII_CHAR font_fixedsys;
-// extern "C" const ASCII_CHAR font8x16;
-// extern "C" const ASCII_CHAR font8x16_2;
-// extern "C" const ASCII_CHAR font12x24;
-// extern "C" const ASCII_CHAR font16x32;
 
-
-// extern "C" const ASCII_CHAR font7x10;
-// extern "C" const ASCII_CHAR Font_11x18;
-// extern "C" const ASCII_CHAR Font_16x26;
 		setFont(font7x10);
 		std::string str;
 		for (int i = 0; i < 95; i++) {
@@ -247,23 +247,9 @@ int main (int argc, char* argv[]) {
 		screen_pic.setColor(0xf);
 		drawStr(0, 0, str.c_str());
 
-		screen_pic.draw1BitXBMP310(0, 80, 16, 16, hz16[0].mask);
-		screen_pic.draw1BitXBMP310(16, 80, 16, 16, hz16[1].mask);
-		screen_pic.draw1BitXBMP310(32, 80, 16, 16, hz16[2].mask);
-		screen_pic.draw1BitXBMP310(48, 80, 16, 16, hz16[3].mask);
-		screen_pic.draw1BitXBMP310(64, 80, 16, 16, hz16[4].mask);
-		screen_pic.draw1BitXBMP310(80, 80, 16, 16, hz16[5].mask);
-		screen_pic.draw1BitXBMP310(96, 80, 16, 16, hz16[6].mask);
-		screen_pic.draw1BitXBMP310(112, 80, 16, 16, hz16[7].mask);
-		screen_pic.draw1BitXBMP310(0, 96, 16, 16, hz16[8].mask);
-		screen_pic.draw1BitXBMP310(16, 96, 16, 16, hz16[9].mask);
-		screen_pic.draw1BitXBMP310(32, 96, 16, 16, hz16[10].mask);
-		screen_pic.draw1BitXBMP310(48, 96, 16, 16, hz16[11].mask);
-		screen_pic.draw1BitXBMP310(64, 96, 16, 16, hz16[12].mask);
-		screen_pic.draw1BitXBMP310(80, 96, 16, 16, hz16[13].mask);
-		screen_pic.draw1BitXBMP310(96, 96, 16, 16, hz16[14].mask);
-		screen_pic.draw1BitXBMP310(112, 96, 16, 16, hz16[15].mask);
+		drawGBK(hz16, 0, 77, "");
 
+		screen_pic.drawRBox(10, 10, 20, 20, 3);
 
 		// char c = ' ';
 		// for (int i = 0; i < 40; i++) {
