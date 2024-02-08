@@ -13,6 +13,24 @@ using namespace std::literals;
 #include "libxbmp_extend.hpp"
 #include "libxbmp.hpp"
 
+#include "u8g2.h"
+#include "U8g2lib.h"
+
+
+uint8_t u8x8_byte_4wire_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int,void *arg_ptr) {
+	return 0;
+}
+
+uint8_t u8x8_gpio_and_delay(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr) {
+	return 0;
+}
+
+class U8G2_SSD1327_MIDAS_128X128_f_4W_HW_SPI : public U8G2 {
+	public: U8G2_SSD1327_MIDAS_128X128_f_4W_HW_SPI(const u8g2_cb_t *rotation) : U8G2() {
+		u8g2_Setup_ssd1327_midas_128x128_f(&u8g2, rotation, u8x8_byte_4wire_hw_spi, u8x8_gpio_and_delay);
+	}
+};
+
 
 #include <ft2build.h>
 #include <freetype/freetype.h>
@@ -20,40 +38,40 @@ using namespace std::literals;
 #include <freetype/ftpfr.h>
 #include <freetype/ftadvanc.h>
 
-/* ×ÖÌåÊı¾İ£¨ttf£© */
+/* å­—ä½“æ•°æ®ï¼ˆttfï¼‰ */
 typedef struct _ft_fontinfo {
-	FT_Face    face;     /* FreeType¿â¾ä±ú¶ÔÏó */
-	FT_Library library;  /* Íâ¹Û¶ÔÏó£¨ÃèÊöÁËÌØ¶¨×ÖÑùºÍ·ç¸ñ£¬±ÈÈçĞ±Ìå·ç¸ñµÈ£© */
-	int32_t     mono;    /* ÊÇ·ñÎª¶şÖµ»¯Ä£Ê½ */
+	FT_Face    face;     /* FreeTypeåº“å¥æŸ„å¯¹è±¡ */
+	FT_Library library;  /* å¤–è§‚å¯¹è±¡ï¼ˆæè¿°äº†ç‰¹å®šå­—æ ·å’Œé£æ ¼ï¼Œæ¯”å¦‚æ–œä½“é£æ ¼ç­‰ï¼‰ */
+	int32_t     mono;    /* æ˜¯å¦ä¸ºäºŒå€¼åŒ–æ¨¡å¼ */
 } ft_fontinfo;
 
-/* ×ÖÄ£¸ñÊ½³£Á¿¶¨Òå */
+/* å­—æ¨¡æ ¼å¼å¸¸é‡å®šä¹‰ */
 typedef enum _glyph_format_t {
-	GLYPH_FMT_ALPHA, /* Ã¿¸öÏñËØÕ¼ÓÃ1¸ö×Ö½Ú */
-	GLYPH_FMT_MONO,  /* Ã¿¸öÏñËØÕ¼ÓÃ1¸ö±ÈÌØ */
+	GLYPH_FMT_ALPHA, /* æ¯ä¸ªåƒç´ å ç”¨1ä¸ªå­—èŠ‚ */
+	GLYPH_FMT_MONO,  /* æ¯ä¸ªåƒç´ å ç”¨1ä¸ªæ¯”ç‰¹ */
 } glyph_format_t;
 
-/* ×ÖÄ££¨Î»Í¼£© */
+/* å­—æ¨¡ï¼ˆä½å›¾ï¼‰ */
 typedef struct _glyph_t {
 	int16_t  x;
 	int16_t  y;
 	uint16_t w;
 	uint16_t h;
-	uint16_t advance;  /* Õ¼Î»¿í¶È */
-	uint8_t  format;   /* ×ÖÄ£¸ñÊ½ */
-	uint8_t  pitch;    /* ¿ç¾à£¨Ã¿ĞĞÏñËØ¸öÊı * µ¥¸öÏñËØËùÕ¼×Ö½ÚÊı£© */
-	uint8_t  *data;    /* ×ÖÄ£Êı¾İ£ºÃ¿¸öÏñËØµãÕ¼ÓÃÒ»¸ö×Ö½Ú */
-	void     *handle;  /* ±£´æĞèÒªÊÍ·ÅµÄ¾ä±ú */
+	uint16_t advance;  /* å ä½å®½åº¦ */
+	uint8_t  format;   /* å­—æ¨¡æ ¼å¼ */
+	uint8_t  pitch;    /* è·¨è·ï¼ˆæ¯è¡Œåƒç´ ä¸ªæ•° * å•ä¸ªåƒç´ æ‰€å å­—èŠ‚æ•°ï¼‰ */
+	uint8_t  *data;    /* å­—æ¨¡æ•°æ®ï¼šæ¯ä¸ªåƒç´ ç‚¹å ç”¨ä¸€ä¸ªå­—èŠ‚ */
+	void     *handle;  /* ä¿å­˜éœ€è¦é‡Šæ”¾çš„å¥æŸ„ */
 } glyph_t;
 
 
-/* »ñÈ¡¶şÖµ»¯Î»Í¼ÉÏÏñËØµãµÄÖµ */
+/* è·å–äºŒå€¼åŒ–ä½å›¾ä¸Šåƒç´ ç‚¹çš„å€¼ */
 uint8_t bitmap_mono_get_pixel(const uint8_t* buff, uint32_t w, uint32_t h, uint32_t x, uint32_t y) {
-	/* ¼ÆËã×Ö½ÚÆ«ÒÆ */
+	/* è®¡ç®—å­—èŠ‚åç§» */
 	uint32_t line_length = ((w + 15) >> 4) << 1;
 	uint32_t offset = y * line_length + (x >> 3);
 
-	/* ¼ÆËãÎ»Æ«ÒÆ */
+	/* è®¡ç®—ä½åç§» */
 	uint32_t offset_bit = 7 - (x % 8);
 
 	const uint8_t* data = buff + offset;
@@ -62,23 +80,24 @@ uint8_t bitmap_mono_get_pixel(const uint8_t* buff, uint32_t w, uint32_t h, uint3
 	return (*data >> offset_bit) & 0x1;
 }
 
-/* »ñÈ¡×ÖÄ£ */
+/* è·å–å­—æ¨¡ */
 static int font_ft_get_glyph(ft_fontinfo *font_info, wchar_t c, float font_size, glyph_t* g) {
 	FT_Glyph glyph;
 	FT_GlyphSlot glyf;
-	FT_Int32 flags = FT_LOAD_DEFAULT | FT_LOAD_RENDER | FT_RENDER_MODE_NORMAL;
+	FT_Int32 flags = FT_LOAD_DEFAULT | FT_LOAD_RENDER | FT_LOAD_NO_BITMAP;
 
 	if (font_info->mono) {
 		flags |= FT_LOAD_TARGET_MONO;
 	}
-	/* ÉèÖÃ×ÖÌå´óĞ¡ */
+	/* è®¾ç½®å­—ä½“å¤§å° */
 	FT_Set_Char_Size(font_info->face, 0, font_size * 64, 0, 72);
-	//FT_Set_Pixel_Sizes(font_info->face, 0, font_size);
+	// FT_Set_Pixel_Sizes(font_info->face, 0, font_size);
 
-	/* Í¨¹ı±àÂë¼ÓÔØ×ÖĞÎ²¢½«Æä×ª»¯ÎªÎ»Í¼£¨±£´æÔÚface->glyph->bitmapÖĞ£© */
+	/* é€šè¿‡ç¼–ç åŠ è½½å­—å½¢å¹¶å°†å…¶è½¬åŒ–ä¸ºä½å›¾ï¼ˆä¿å­˜åœ¨face->glyph->bitmapä¸­ï¼‰ */
 	if (!FT_Load_Char(font_info->face, c, flags)) {
 		glyf = font_info->face->glyph;
 		FT_Get_Glyph(glyf, &glyph);
+		// FT_Render_Glyph(glyf, FT_RENDER_MODE_NORMAL);
 
 		g->format = GLYPH_FMT_ALPHA;
 		g->h = glyf->bitmap.rows;
@@ -103,8 +122,9 @@ static int font_ft_get_glyph(ft_fontinfo *font_info, wchar_t c, float font_size,
 }
 
 
-bool key[16] {false};               // ï¿½ï¿½Ò»ï¿½ï¿½É¨ï¿½è±»ï¿½ï¿½ï¿½ÂµÄ°ï¿½ï¿½ï¿½
-bool key_pressed_flag[16] {false};  // ï¿½ï¿½ï¿½Î°ï¿½ï¿½ï¿½
+uint8_t keyboard[8] {0,0,0,0,0,0,0,0};
+bool key[16] {false};               // é”Ÿæ–¤æ‹·ä¸€é”Ÿæ–¤æ‹·æ‰«é”Ÿå€Ÿè¢«é”Ÿæ–¤æ‹·é”Ÿé“°çš„å¸®æ‹·é”Ÿæ–¤æ‹·
+bool key_pressed_flag[16] {false};  // é”Ÿæ–¤æ‹·é”Ÿè½¿å¸®æ‹·é”Ÿæ–¤æ‹·
 
 void key_input(void) {
 	// 0x1
@@ -186,7 +206,7 @@ void draw_screen(ege::PIMAGE img, int x, int y, int w, int h, int zoom = 1) {
 }
 void after_frames(void) {
 	// static int t = clock();
-	draw_screen(ege_draw_image, 100, 100, 128, 128, 4);
+	// draw_screen(ege_draw_image, 100, 100, 128, 128, 4);
 
 	ege::setcolor(EGERGB(255, 255, 255));
 	ege::xyprintf(10, 10, "FPS: %.1f", ege::getfps());
@@ -307,8 +327,8 @@ void drawGBK(int x, int y, const uint8_t* str, bool auto_newline = true) {
 			}
 
 			// screen_pic.draw1BitXBMP310(x, y, 16, 16, sim_16x16_gb2312.data+index*32);
-			// Õâ¸ö×Ö¿âÖ»ÓĞºº×ÖÃ»ÓĞ±êµã·ûºÅ£¬ËùÒÔ gbkh Òª¼õ 0xb0
-			// Éæ¼°µ½±êµã·ûºÅ»áÊ¹¼ÆËã½á¹û³öÏÖÎÊÌâ£¬×î¼Ñ½â¾ö·½°¸ÊÇ°Ñ±êµã·ûºÅÒ»Æğ°ü½øÀ´
+			// è¿™ä¸ªå­—åº“åªæœ‰æ±‰å­—æ²¡æœ‰æ ‡ç‚¹ç¬¦å·ï¼Œæ‰€ä»¥ gbkh è¦å‡ 0xb0
+			// æ¶‰åŠåˆ°æ ‡ç‚¹ç¬¦å·ä¼šä½¿è®¡ç®—ç»“æœå‡ºç°é—®é¢˜ï¼Œæœ€ä½³è§£å†³æ–¹æ¡ˆæ˜¯æŠŠæ ‡ç‚¹ç¬¦å·ä¸€èµ·åŒ…è¿›æ¥
 			screen_pic.draw1BitXBMP310(x, y, 16, 16, sim_16x16_gb2312.data+index*32);
 
 			x += 16 + sim_16x16_gb2312.spacing_x;
@@ -325,52 +345,53 @@ void drawGBK(int x, int y, const uint8_t* str, bool auto_newline = true) {
 	// sim_16x16_gb2312
 }
 
-	ft_fontinfo   font_info;         /* ×Ö¿âĞÅÏ¢ */
-	long int      size = 0;          /* ×Ö¿âÎÄ¼ş´óĞ¡ */
-	unsigned char *font_buf = NULL;  /* ×Ö¿âÎÄ¼şÊı¾İ */
+	ft_fontinfo   font_info;         /* å­—åº“ä¿¡æ¯ */
+	long int      size = 0;          /* å­—åº“æ–‡ä»¶å¤§å° */
+	unsigned char *font_buf = NULL;  /* å­—åº“æ–‡ä»¶æ•°æ® */
 
 int load_font(std::string path) {
 
-	/* ¼ÓÔØ×Ö¿âÎÄ¼ş´æÈëfont_buf */
+	/* åŠ è½½å­—åº“æ–‡ä»¶å­˜å…¥font_buf */
 	FILE *font_file = fopen(path.c_str(), "rb");
 	if (font_file == NULL) {
 		printf("Can not open font file!\n");
 		getchar();
 		return 0;
 	}
-	fseek(font_file, 0, SEEK_END); /* ÉèÖÃÎÄ¼şÖ¸Õëµ½ÎÄ¼şÎ²£¬»ùÓÚÎÄ¼şÎ²Æ«ÒÆ0×Ö½Ú */
-	size = ftell(font_file);       /* »ñÈ¡ÎÄ¼ş´óĞ¡£¨ÎÄ¼şÎ² - ÎÄ¼şÍ·  µ¥Î»£º×Ö½Ú£© */
-	fseek(font_file, 0, SEEK_SET); /* ÖØĞÂÉèÖÃÎÄ¼şÖ¸Õëµ½ÎÄ¼şÍ· */
+	fseek(font_file, 0, SEEK_END); /* è®¾ç½®æ–‡ä»¶æŒ‡é’ˆåˆ°æ–‡ä»¶å°¾ï¼ŒåŸºäºæ–‡ä»¶å°¾åç§»0å­—èŠ‚ */
+	size = ftell(font_file);       /* è·å–æ–‡ä»¶å¤§å°ï¼ˆæ–‡ä»¶å°¾ - æ–‡ä»¶å¤´  å•ä½ï¼šå­—èŠ‚ï¼‰ */
+	fseek(font_file, 0, SEEK_SET); /* é‡æ–°è®¾ç½®æ–‡ä»¶æŒ‡é’ˆåˆ°æ–‡ä»¶å¤´ */
 
 	font_buf = (unsigned char*)calloc(size, sizeof(unsigned char));
 	fread(font_buf, size, 1, font_file);
 	fclose(font_file);
 
-	font_info.mono = 1;  /* ÉèÖÃÎª¶şÖµ»¯Ä£Ê½ */
+	font_info.mono = 1;  /* è®¾ç½®ä¸ºäºŒå€¼åŒ–æ¨¡å¼ */
 
-	/* ³õÊ¼»¯FreeType */
+	/* åˆå§‹åŒ–FreeType */
 	FT_Init_FreeType(&(font_info.library));
 
-	/* ´Ófont_bufÖĞÌáÈ¡Íâ¹Û */
+	/* ä»font_bufä¸­æå–å¤–è§‚ */
 	FT_New_Memory_Face(font_info.library, font_buf, size, 0, &(font_info.face));
 
-	/* ÉèÖÃ×ÖÌå±àÂë·½Ê½ÎªUNICODE */
+	/* è®¾ç½®å­—ä½“ç¼–ç æ–¹å¼ä¸ºUNICODE */
 	FT_Select_Charmap(font_info.face, FT_ENCODING_UNICODE);
 
 }
 int drawFreeType_char(int x, int y, wchar_t ch) {
 	glyph_t g;
 	// wchar_t c = L'a';
-	float   font_size = 16;  /* ÉèÖÃ×ÖÌå´óĞ¡ */
-	font_ft_get_glyph(&font_info, ch, font_size, &g);  /* »ñÈ¡×ÖÄ£ */
+	float   font_size = 18;  /* è®¾ç½®å­—ä½“å¤§å° */
+	font_ft_get_glyph(&font_info, ch, font_size, &g);  /* è·å–å­—æ¨¡ */
 
-/* ´òÓ¡×ÖÄ£ĞÅÏ¢ */
+/* æ‰“å°å­—æ¨¡ä¿¡æ¯ */
 	int i = 0, j = 0;
 	if (g.format == GLYPH_FMT_MONO) {
 		for (j = 0; j < g.h; ++j) {
 			for (i = 0; i < g.w; ++i) {
 				uint8_t pixel = bitmap_mono_get_pixel(g.data, g.w, g.h, i, j);
-				putpixel(x+i, y+g.y+j, pixel ? (EGERGB(255,255,255)) : (EGERGB(0,0,0)));
+				// putpixel(x+i, y+g.y+j, pixel ? (EGERGB(255,255,255)) : (EGERGB(0,0,0)));
+				if (pixel) screen_pic.drawPixel(x+i, y+g.y+j);
 			}
 		}
 	} else if (g.format == GLYPH_FMT_ALPHA) {
@@ -382,74 +403,170 @@ int drawFreeType_char(int x, int y, wchar_t ch) {
 		}
 	}
 
-	return g.advance;
+	return g.w;
 }
 
 void drawFreeType_str(int x, int y, std::span<wchar_t> strw) {
-
+	int w = 0;
 	for (int i = 0; i < strw.size(); i++) {
-		x += drawFreeType_char(x, y, strw[i]) + 2;
-		if (x > 600) {
-			x = 40;
-			y += 36;
+		if (x > 128-w) {
+			x = 0;
+			y += 16 + 2;
+		}
+		w = drawFreeType_char(x, y, strw[i]) + 1;
+		x += w;
+	}
+}
+
+
+#include "hanoi.hpp"
+tbz::game::hanoi hanoi;
+
+#include "snake.hpp"
+tbz::game::SNAKE snake;
+
+#include "round_watch_face.hpp"
+tbz::round_watch_face rwf;
+#include "square_watch.hpp"
+tbz::SquareWatch sw;
+#include "modern_art_generator.hpp"
+tbz::MODERN_ART_GENERATOR mag;
+// #include "sound_wave.hpp"
+#include "animation.hpp"
+extern "C" const uint8_t snow_animation_pic[];
+tbz::SPRITE_ANIMATION<10> ani1(snow_animation_pic, 72, 8, 8, 8, 128, 128, 9);
+tbz::SPRITE_ANIMATION<10> ani2(snow_animation_pic+72, 54, 8, 8, 8, 128, 128, 6);
+#include "app_selector.hpp"
+tbz::APP_SELECTOR app_selector;
+
+
+
+
+
+
+int show_keyboard(tbz::PIC& pic) {
+	int pressed_key_count = 0;
+	for (int i = 0; i < 3; i++) {
+		for (int j = 0; j < 5; j++) {
+			int index_of_res = 2+(i*5+j)*2*16;
+			if (key[i*5+j]) {
+				if (pressed_key_count < 6)
+					keyboard[2+pressed_key_count] = 4+5*i+j;
+				pressed_key_count ++;
+
+				int offset = (16/8)*16*32;
+				pic.draw1BitXBMP2x(8+22*j, 30+22*i, 16, 16, normal_keys+index_of_res+offset);
+			} else {
+				keyboard[2+pressed_key_count] = 0;
+				pic.draw1BitXBMP2x(8+22*j, 30+22*i, 16, 16, normal_keys+index_of_res);
+			}
 		}
 	}
+
+	return pressed_key_count;
+}
+
+	U8G2_SSD1327_MIDAS_128X128_f_4W_HW_SPI u8g2(U8G2_R0);
+
+void draw_screen2(ege::PIMAGE pic, int x, int y, int w, int h, int zoom = 1) {
+	trans_u8g2buffer_to_4bitxbmp(u8g2.getBufferPtr(), screen_buffer+2, 128, 128);
+	draw_screen(pic, x, y, w, h, zoom);
+	cleardevice(pic);
+	u8g2.clearBuffer();
+	screen_pic.clear();
 }
 
 int main (int argc, char* argv[]) {
 	ege::setinitmode (INIT_RENDERMANUAL);
 	ege::initgraph (700, 700);
 	ege::setbkmode (TRANSPARENT);
-
-	// FT_LIBRARY library;                         //FreeType¿âµÄ¾ä±ú
+	srand(time(nullptr));
+	// FT_LIBRARY library;                         //FreeTypeåº“çš„å¥æŸ„
 	// FT_Error error = FT_Init_FreeType( &library );
 	// if ( error )
-	// {  /* ³õÊ¼»¯Ê§°Ü */  }
+	// {  /* åˆå§‹åŒ–å¤±è´¥ */  }
 
-	// FT_Face face;                        //FT_Face¶ÔÏóµÄ¾ä±ú
+	// FT_Face face;                        //FT_Faceå¯¹è±¡çš„å¥æŸ„
 	// FT_New_Face( library, "/usr/share/fonts/truetype/arial.ttf", 0, &face);
 
-	// FT_Face face;                        //FT_Face¶ÔÏóµÄ¾ä±ú
+	// FT_Face face;                        //FT_Faceå¯¹è±¡çš„å¥æŸ„
 	// FT_New_Memory_Face(font_info.library, font_buf, size, 0, &face);
 
 	// FT_Select_Charmap(face, FT_ENCODING_UNICODE);
 
-	// FT_Set_Char_Size( face, 36 * 64, 0, 96 , 0);    //0±íÊ¾ÓëÁíÒ»¸ö³ß´çÖµÏàµÈ¡£
+	// FT_Set_Char_Size( face, 36 * 64, 0, 96 , 0);    //0è¡¨ç¤ºä¸å¦ä¸€ä¸ªå°ºå¯¸å€¼ç›¸ç­‰ã€‚
 
 	// wchar_t char_code = L'A';
-	// FT_UInt glyph_index = FT_Get_Char_Index(face, char_code);     /* Èô glyph_index Îª0£¬±íÊ¾Ã»ÕÒµ½×ÖĞÎË÷Òı */
+	// FT_UInt glyph_index = FT_Get_Char_Index(face, char_code);     /* è‹¥ glyph_index ä¸º0ï¼Œè¡¨ç¤ºæ²¡æ‰¾åˆ°å­—å½¢ç´¢å¼• */
 
-	// FT_Load_Glyph(face, glyph_index, load_flags); /* load_flags£º×°ÔØ±êÖ¾£¬Ò»°ãÌîFT_LOAD_DEFAULT */
+	// FT_Load_Glyph(face, glyph_index, load_flags); /* load_flagsï¼šè£…è½½æ ‡å¿—ï¼Œä¸€èˆ¬å¡«FT_LOAD_DEFAULT */
 
-	// FT_Render_Glyph(face->glyph, render_mode); /* render_mode£ºäÖÈ¾Ä£Ê½ */
+	// FT_Render_Glyph(face->glyph, render_mode); /* render_modeï¼šæ¸²æŸ“æ¨¡å¼ */
 
 	// FT_Load_Char(face, char_code, FT_LOAD_RENDER | FT_LOAD_MONOCHROME);
 
-	load_font("./font/WenQuanYi Bitmap Song 16px.ttf");
+	load_font("./font/wqy/WenQuanYi Bitmap Song 16px.ttf");
 	// wchar_t strw[] = L"The quick brown fox jumps over the lazy dog";
-	wchar_t strw[] = L"ÄãºÃÊÀ½ç";
-
-
+	wchar_t strw[] = L"Hello World!ä½ å¥½,ä¸–ç•Œã€‚The quick brown fox jumps over the lazy dogæˆ‘èƒ½åä¸‹ç»ç’ƒè€Œä¸ä¼¤èº«ä½“Innovation in Chinaä¸­å›½æ™ºé€ æ…§åŠå…¨çƒ";
 
 	ege_draw_image = ege::newimage(128, 128);
 
+	hanoi.set_U8G2(&u8g2);
+	snake.set_U8G2(&u8g2);
+	rwf.set_U8G2(&u8g2);
+	sw.set_U8G2(&u8g2);
+	mag.set_U8G2(&u8g2);
+	mag.random_to_next();
 	dice.setPic(&screen_pic).setup();
 	spider_web.setPic(&screen_pic).setup();
+	// sound_wave.setPic(&screen_pic).setup();
+	// list_selector.set_U8G2(&u8g2);
+	app_selector.set_U8G2(&u8g2);
+	app_selector.setPIC(&screen_pic);
+	// app_selector.setTime(sTime);
 
+	ani1.set_U8G2(&u8g2);
+	ani2.set_U8G2(&u8g2);
 	int frames_count = 0;
 
 	for (;ege::is_run();frames_count++, after_frames()) {
 
-
+		u8g2.setFont(u8g2_font_wqy16_t_gb2312);
+		// u8g2.drawUTF8(10, 20, "ä½ å¥½ä¸–ç•ŒInnovation in China");
+		cleardevice(ege_draw_image);
 		screen_pic.clear();
-
-		drawFreeType_str(40, 40, strw);
+		u8g2.clearBuffer();
+		screen_pic.setColor(0xf);
+		dice.draw();
+		draw_screen2(ege_draw_image, 100, 100, 128, 128, 1);
+		spider_web.draw();
+		draw_screen2(ege_draw_image, 228, 100, 128, 128, 1);
+		screen_pic.setColor(0x8);
+		hanoi.start_scene();
+		draw_screen2(ege_draw_image, 356, 100, 128, 128, 1);
+		screen_pic.setColor(0xa);
+		snake.game();
+		draw_screen2(ege_draw_image, 484, 100, 128, 128, 1);
+		rwf.draw(500);
+		draw_screen2(ege_draw_image, 100, 228, 128, 128, 1);
+		sw.draw(10, 10, 10);
+		draw_screen2(ege_draw_image, 228, 228, 128, 128, 1);
+		mag.draw();
+		draw_screen2(ege_draw_image, 356, 228, 128, 128, 1);
+		ani1.draw();
+		ani2.draw();
+		draw_screen2(ege_draw_image, 484, 228, 128, 128, 1);
+		app_selector.draw();
+		draw_screen2(ege_draw_image, 100, 356, 128, 128, 1);
+		screen_pic.setColor(0xf);
+		drawFreeType_str(0, 16, strw);
+		draw_screen2(ege_draw_image, 228, 356, 128, 128, 1);
+		show_keyboard(screen_pic);
+		draw_screen2(ege_draw_image, 356, 356, 128, 128, 1);
 		// screen_pic.drawXBMP(0, 0, 64, 64, tsetBones+2);
 		// screen_pic.drawXBMP(64, 0, 64, 64, tsetLava+2);
 		// screen_pic.drawXBMP(0, 64, 64, 64, tsetSand+2);
 		// screen_pic.drawXBMP(64, 64, 64, 64, tsetTower+2);
-		// dice.draw();
-		// spider_web.draw();
 
 		// screen_pic.setColor(0xf);
 		// screen_pic.draw1BitXBMP(0, 0, 12, 12, tfont12[0].mask);
@@ -490,6 +607,7 @@ int main (int argc, char* argv[]) {
 		screen_pic.setColor(0xf);
 		// char str [] {"\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7"};
 		drawGBK(0, 0, test_str_1);
+		draw_screen2(ege_draw_image, 484, 356, 128, 128, 1);
 
 		// screen_pic.drawRBox(10, 10, 20, 20, 3);
 
@@ -504,7 +622,7 @@ int main (int argc, char* argv[]) {
 
 	}
 
-		/* ÊÍ·Å×ÊÔ´ */
+		/* é‡Šæ”¾èµ„æº */
 	// FT_Done_Glyph((FT_Glyph)g.handle);
 	// FT_Done_FreeType(font_info.library);
 	free(font_buf);
