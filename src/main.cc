@@ -97,10 +97,13 @@ void draw_screen(ege::PIMAGE img, int x, int y, int w, int h, int zoom = 1) {
 	ege::putimage(x, y, w*zoom, h*zoom, img, 0, 0, ege::getwidth(img), ege::getheight(img));
 }
 void after_frames(void) {
+	// static int t = clock();
 	draw_screen(ege_draw_image, 100, 100, 128, 128, 4);
 
 	ege::setcolor(EGERGB(255, 255, 255));
 	ege::xyprintf(10, 10, "FPS: %.1f", ege::getfps());
+	// ege::xyprintf(10, 10, "FPS: %05.1f", 1000.0/(clock()-t));
+	// t = clock();
 	ege::delay_fps(60);
 	ege::cleardevice();
 }
@@ -123,25 +126,26 @@ void setFont(const ASCII_CHAR& font) {
 void drawGlyph(int x, int y, const char ch) {
 	int w = g_font -> width;
 	int h = g_font -> height;
+	const uint8_t* ptr = g_font -> data;
 	switch (g_font -> mode) {
 		case FONT_MODE_0: {
 			int blen = w*((h+7)/8);
-			const uint8_t* ptr = g_font -> data+((ch-' ')*blen);
+			ptr += ((ch-' ')*blen);
 			screen_pic.draw1BitXBMP0(x, y, w, h, ptr);
 		} break;
 		case FONT_MODE_1: {
 			int blen = (w+7)/8*h;
-			const uint8_t* ptr = g_font -> data+((ch-' ')*blen);
+			ptr += ((ch-' ')*blen);
 			screen_pic.draw1BitXBMP1(x, y, w, h, ptr);
 		} break;
 		case FONT_MODE_2: {
 			int blen = w*((h+7)/8);
-			const uint8_t* ptr = g_font -> data+((ch-' ')*blen);
+			ptr += ((ch-' ')*blen);
 			screen_pic.draw1BitXBMP2(x, y, w, h, ptr);
 		} break;
 		case FONT_MODE_3: {
 			int blen = (w+7)/8*h;
-			const uint8_t* ptr = g_font -> data+((ch-' ')*blen);
+			ptr += ((ch-' ')*blen);
 			if (g_font->reverse) {
 				// screen_pic.draw1BitXBMP310(x, y, w, h, ptr);
 				screen_pic.draw1BitXBMP301(x, y, w, h, ptr);
@@ -183,10 +187,59 @@ void drawGBK (const T& font, int x, int y, const char str[], bool auto_newline =
 	}
 }
 
+void drawGBK(int x, int y, const uint8_t* str, bool auto_newline = true) {
+
+	// int length = 100;
+	for (const uint8_t* ptr = str; *ptr != '\0'; ) {
+		if (*ptr > 0xa0 && *(ptr+1) > 0xa0) {
+			uint8_t gbkh = *ptr++;
+			uint8_t gbkl = *ptr++;
+			// // uint32_t index = (gbkh-0x81)*190 + gbkl - 6256;
+			// printf ("\n0x%02x%02x\t", gbkh, gbkl);
+
+			// // if (gbkl < 0x7f) {
+			// // 	index = (index - 0x40);
+			// // } else {
+			// // 	index = (index - 0x41);
+			// // }
+			// gbkh = 0xb0;
+			// gbkl = 0xa1;
+			gbkh -= 0xb0;
+			gbkl -= 0xa1;
+			uint32_t index = ((0xff-0xa1)*gbkh + gbkl);
+			// https://blog.csdn.net/anyuliuxing/article/details/84326207
+
+			if (index > 6768) continue;
+			// printf("%d\t", index);
+
+			if (x > (128 - 16)) {
+				y += 16 + sim_16x16_gb2312.spacing_y;
+				x = 0;
+			}
+
+			// screen_pic.draw1BitXBMP310(x, y, 16, 16, sim_16x16_gb2312.data+index*32);
+			// Õâ¸ö×Ö¿âÖ»ÓÐºº×ÖÃ»ÓÐ±êµã·ûºÅ£¬ËùÒÔ gbkh Òª¼õ 0xb0
+			// Éæ¼°µ½±êµã·ûºÅ»áÊ¹¼ÆËã½á¹û³öÏÖÎÊÌâ£¬×î¼Ñ½â¾ö·½°¸ÊÇ°Ñ±êµã·ûºÅÒ»Æð°ü½øÀ´
+			screen_pic.draw1BitXBMP310(x, y, 16, 16, sim_16x16_gb2312.data+index*32);
+
+			x += 16 + sim_16x16_gb2312.spacing_x;
+		} else {
+			uint8_t ch = *ptr++;
+			if (x > (128 - g_font->width)) {
+				y += 16 + g_font->spacing_y;
+				x = 0;
+			}
+			drawGlyph(x, y, ch);
+			x += g_font->width + g_font->spacing_x;
+		}
+	}
+	// sim_16x16_gb2312
+}
+
 int main (int argc, char* argv[]) {
 	// ï¿½Ö¶ï¿½Ë¢ï¿½ï¿½Ä£Ê½
 	ege::setinitmode (INIT_RENDERMANUAL);
-	// ï¿½ï¿½ï¿½ï¿½Ö±ï¿½ï¿½ï¿½
+	// ï¿½ï¿½ï¿½ï¿½Ö±ï¿½ï¿½ï¿?
 	ege::initgraph (700, 700);
 	ege::setbkmode (TRANSPARENT);
 
@@ -237,7 +290,7 @@ int main (int argc, char* argv[]) {
 		// screen_pic.draw1BitXBMP(96, 55, 32, 32, tfont32[3].mask);
 		// screen_pic.draw1BitXBMP(128, 55, 32, 32, tfont32[4].mask);
 
-		setFont(font7x10);
+		setFont(font_fixedsys);
 		std::string str;
 		for (int i = 0; i < 95; i++) {
 			// str += "Hello World"sv;
@@ -245,11 +298,16 @@ int main (int argc, char* argv[]) {
 			str += (char)(' '+i);
 		}
 		screen_pic.setColor(0xf);
-		drawStr(0, 0, str.c_str());
+		// drawStr(0, 0, str.c_str());
+		screen_pic.setColor(0xa);
+		// drawGBK(hz16, 0, 77, "");
 
-		drawGBK(hz16, 0, 77, "");
+		screen_pic.setColor(0xf);
+		// char str [] {"\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7"};
+		const uint8_t str1[] {"Hello World!ÄãºÃ,ÊÀ½ç¡£The quick brown fox jumps over the lazy dogÎÒÄÜÍÌÏÂ²£Á§¶ø²»ÉËÉíÌåÖÐ¹úÖÇÔì»Û¼°È«Çò"};
+		drawGBK(0, 0, str1);
 
-		screen_pic.drawRBox(10, 10, 20, 20, 3);
+		// screen_pic.drawRBox(10, 10, 20, 20, 3);
 
 		// char c = ' ';
 		// for (int i = 0; i < 40; i++) {
