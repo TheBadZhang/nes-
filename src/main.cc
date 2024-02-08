@@ -8,11 +8,99 @@ using namespace std::literals;
 
 #include "core.h"
 
+#include <span>
 
 #include "libxbmp_extend.hpp"
 #include "libxbmp.hpp"
 
 
+#include <ft2build.h>
+#include <freetype/freetype.h>
+#include <freetype/ftglyph.h>
+#include <freetype/ftpfr.h>
+#include <freetype/ftadvanc.h>
+
+/* 字体数据（ttf） */
+typedef struct _ft_fontinfo {
+	FT_Face    face;     /* FreeType库句柄对象 */
+	FT_Library library;  /* 外观对象（描述了特定字样和风格，比如斜体风格等） */
+	int32_t     mono;    /* 是否为二值化模式 */
+} ft_fontinfo;
+
+/* 字模格式常量定义 */
+typedef enum _glyph_format_t {
+	GLYPH_FMT_ALPHA, /* 每个像素占用1个字节 */
+	GLYPH_FMT_MONO,  /* 每个像素占用1个比特 */
+} glyph_format_t;
+
+/* 字模（位图） */
+typedef struct _glyph_t {
+	int16_t  x;
+	int16_t  y;
+	uint16_t w;
+	uint16_t h;
+	uint16_t advance;  /* 占位宽度 */
+	uint8_t  format;   /* 字模格式 */
+	uint8_t  pitch;    /* 跨距（每行像素个数 * 单个像素所占字节数） */
+	uint8_t  *data;    /* 字模数据：每个像素点占用一个字节 */
+	void     *handle;  /* 保存需要释放的句柄 */
+} glyph_t;
+
+
+/* 获取二值化位图上像素点的值 */
+uint8_t bitmap_mono_get_pixel(const uint8_t* buff, uint32_t w, uint32_t h, uint32_t x, uint32_t y) {
+	/* 计算字节偏移 */
+	uint32_t line_length = ((w + 15) >> 4) << 1;
+	uint32_t offset = y * line_length + (x >> 3);
+
+	/* 计算位偏移 */
+	uint32_t offset_bit = 7 - (x % 8);
+
+	const uint8_t* data = buff + offset;
+	if (buff == NULL || (x > w && y > h))
+		return 0;
+	return (*data >> offset_bit) & 0x1;
+}
+
+/* 获取字模 */
+static int font_ft_get_glyph(ft_fontinfo *font_info, wchar_t c, float font_size, glyph_t* g) {
+	FT_Glyph glyph;
+	FT_GlyphSlot glyf;
+	FT_Int32 flags = FT_LOAD_DEFAULT | FT_LOAD_RENDER | FT_RENDER_MODE_NORMAL;
+
+	if (font_info->mono) {
+		flags |= FT_LOAD_TARGET_MONO;
+	}
+	/* 设置字体大小 */
+	FT_Set_Char_Size(font_info->face, 0, font_size * 64, 0, 72);
+	//FT_Set_Pixel_Sizes(font_info->face, 0, font_size);
+
+	/* 通过编码加载字形并将其转化为位图（保存在face->glyph->bitmap中） */
+	if (!FT_Load_Char(font_info->face, c, flags)) {
+		glyf = font_info->face->glyph;
+		FT_Get_Glyph(glyf, &glyph);
+
+		g->format = GLYPH_FMT_ALPHA;
+		g->h = glyf->bitmap.rows;
+		g->w = glyf->bitmap.width;
+		g->pitch = glyf->bitmap.pitch;
+		g->x = glyf->bitmap_left;
+		g->y = -glyf->bitmap_top;
+		g->data = glyf->bitmap.buffer;
+		g->advance = glyf->metrics.horiAdvance / 64;
+
+		if (g->data != NULL) {
+			if (glyf->bitmap.pixel_mode == FT_PIXEL_MODE_MONO) {
+				g->format = GLYPH_FMT_MONO;
+			}
+			g->handle = glyph;
+		}
+		else {
+			FT_Done_Glyph(glyph);
+		}
+	}
+	return g->data != NULL || c == ' ' ? 1 : 0;
+}
 
 
 bool key[16] {false};               // 锟斤拷一锟斤拷扫锟借被锟斤拷锟铰的帮拷锟斤拷
@@ -187,6 +275,7 @@ void drawGBK (const T& font, int x, int y, const char str[], bool auto_newline =
 	}
 }
 
+extern "C" const uint8_t test_str_1[];
 void drawGBK(int x, int y, const uint8_t* str, bool auto_newline = true) {
 
 	// int length = 100;
@@ -236,12 +325,109 @@ void drawGBK(int x, int y, const uint8_t* str, bool auto_newline = true) {
 	// sim_16x16_gb2312
 }
 
+	ft_fontinfo   font_info;         /* 字库信息 */
+	long int      size = 0;          /* 字库文件大小 */
+	unsigned char *font_buf = NULL;  /* 字库文件数据 */
+
+int load_font(std::string path) {
+
+	/* 加载字库文件存入font_buf */
+	FILE *font_file = fopen(path.c_str(), "rb");
+	if (font_file == NULL) {
+		printf("Can not open font file!\n");
+		getchar();
+		return 0;
+	}
+	fseek(font_file, 0, SEEK_END); /* 设置文件指针到文件尾，基于文件尾偏移0字节 */
+	size = ftell(font_file);       /* 获取文件大小（文件尾 - 文件头  单位：字节） */
+	fseek(font_file, 0, SEEK_SET); /* 重新设置文件指针到文件头 */
+
+	font_buf = (unsigned char*)calloc(size, sizeof(unsigned char));
+	fread(font_buf, size, 1, font_file);
+	fclose(font_file);
+
+	font_info.mono = 1;  /* 设置为二值化模式 */
+
+	/* 初始化FreeType */
+	FT_Init_FreeType(&(font_info.library));
+
+	/* 从font_buf中提取外观 */
+	FT_New_Memory_Face(font_info.library, font_buf, size, 0, &(font_info.face));
+
+	/* 设置字体编码方式为UNICODE */
+	FT_Select_Charmap(font_info.face, FT_ENCODING_UNICODE);
+
+}
+int drawFreeType_char(int x, int y, wchar_t ch) {
+	glyph_t g;
+	// wchar_t c = L'a';
+	float   font_size = 16;  /* 设置字体大小 */
+	font_ft_get_glyph(&font_info, ch, font_size, &g);  /* 获取字模 */
+
+/* 打印字模信息 */
+	int i = 0, j = 0;
+	if (g.format == GLYPH_FMT_MONO) {
+		for (j = 0; j < g.h; ++j) {
+			for (i = 0; i < g.w; ++i) {
+				uint8_t pixel = bitmap_mono_get_pixel(g.data, g.w, g.h, i, j);
+				putpixel(x+i, y+g.y+j, pixel ? (EGERGB(255,255,255)) : (EGERGB(0,0,0)));
+			}
+		}
+	} else if (g.format == GLYPH_FMT_ALPHA) {
+		for (j = 0; j < g.h; ++j) {
+			for (i = 0; i < g.w; ++i) {
+				uint8_t pixel = g.data[j*g.w + i];
+				putpixel (x+i, y+g.y+j, EGERGB(pixel, pixel, pixel));
+			}
+		}
+	}
+
+	return g.advance;
+}
+
+void drawFreeType_str(int x, int y, std::span<wchar_t> strw) {
+
+	for (int i = 0; i < strw.size(); i++) {
+		x += drawFreeType_char(x, y, strw[i]) + 2;
+		if (x > 600) {
+			x = 40;
+			y += 36;
+		}
+	}
+}
+
 int main (int argc, char* argv[]) {
-	// 锟街讹拷刷锟斤拷模式
 	ege::setinitmode (INIT_RENDERMANUAL);
-	// 锟斤拷锟斤拷直锟斤拷锟?
 	ege::initgraph (700, 700);
 	ege::setbkmode (TRANSPARENT);
+
+	// FT_LIBRARY library;                         //FreeType库的句柄
+	// FT_Error error = FT_Init_FreeType( &library );
+	// if ( error )
+	// {  /* 初始化失败 */  }
+
+	// FT_Face face;                        //FT_Face对象的句柄
+	// FT_New_Face( library, "/usr/share/fonts/truetype/arial.ttf", 0, &face);
+
+	// FT_Face face;                        //FT_Face对象的句柄
+	// FT_New_Memory_Face(font_info.library, font_buf, size, 0, &face);
+
+	// FT_Select_Charmap(face, FT_ENCODING_UNICODE);
+
+	// FT_Set_Char_Size( face, 36 * 64, 0, 96 , 0);    //0表示与另一个尺寸值相等。
+
+	// wchar_t char_code = L'A';
+	// FT_UInt glyph_index = FT_Get_Char_Index(face, char_code);     /* 若 glyph_index 为0，表示没找到字形索引 */
+
+	// FT_Load_Glyph(face, glyph_index, load_flags); /* load_flags：装载标志，一般填FT_LOAD_DEFAULT */
+
+	// FT_Render_Glyph(face->glyph, render_mode); /* render_mode：渲染模式 */
+
+	// FT_Load_Char(face, char_code, FT_LOAD_RENDER | FT_LOAD_MONOCHROME);
+
+	load_font("./font/WenQuanYi Bitmap Song 16px.ttf");
+	// wchar_t strw[] = L"The quick brown fox jumps over the lazy dog";
+	wchar_t strw[] = L"你好世界";
 
 
 
@@ -257,7 +443,7 @@ int main (int argc, char* argv[]) {
 
 		screen_pic.clear();
 
-
+		drawFreeType_str(40, 40, strw);
 		// screen_pic.drawXBMP(0, 0, 64, 64, tsetBones+2);
 		// screen_pic.drawXBMP(64, 0, 64, 64, tsetLava+2);
 		// screen_pic.drawXBMP(0, 64, 64, 64, tsetSand+2);
@@ -301,11 +487,9 @@ int main (int argc, char* argv[]) {
 		// drawStr(0, 0, str.c_str());
 		screen_pic.setColor(0xa);
 		// drawGBK(hz16, 0, 77, "");
-
 		screen_pic.setColor(0xf);
 		// char str [] {"\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7"};
-		const uint8_t str1[] {"Hello World!你好,世界。The quick brown fox jumps over the lazy dog我能吞下玻璃而不伤身体中国智造慧及全球"};
-		drawGBK(0, 0, str1);
+		drawGBK(0, 0, test_str_1);
 
 		// screen_pic.drawRBox(10, 10, 20, 20, 3);
 
@@ -319,6 +503,11 @@ int main (int argc, char* argv[]) {
 		// drawGlyph(0, 0, '!');
 
 	}
+
+		/* 释放资源 */
+	// FT_Done_Glyph((FT_Glyph)g.handle);
+	// FT_Done_FreeType(font_info.library);
+	free(font_buf);
 
 	ege::closegraph();
 
