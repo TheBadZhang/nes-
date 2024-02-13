@@ -4,6 +4,11 @@
 #include <algorithm>
 #include <ranges>
 #include <string_view>
+#include <string>
+#include <vector>
+#include <array>
+#include <map>
+#include <format>
 using namespace std::literals;
 
 #include "core.h"
@@ -128,24 +133,27 @@ bool key_pressed_flag[16] {false};  // 锟斤拷锟轿帮拷锟斤拷
 
 void key_input(void) {
 	// 0x1
-	if (ege::kbhit()) {
-		switch (ege::getch()) {
-			case '1': key[0x1] = true; break;
-			case '2': key[0x2] = true; break;
-			case '3': key[0x3] = true; break;
-			case '4': key[0xC] = true; break;
-			case 'q': key[0x4] = true; break;
-			case 'w': key[0x5] = true; break;
-			case 'e': key[0x6] = true; break;
-			case 'r': key[0xD] = true; break;
-			case 'a': key[0x7] = true; break;
-			case 's': key[0x8] = true; break;
-			case 'd': key[0x9] = true; break;
-			case 'f': key[0xE] = true; break;
-			case 'z': key[0xA] = true; break;
-			case 'x': key[0x0] = true; break;
-			case 'c': key[0xB] = true; break;
-			case 'v': key[0xF] = true; break;
+	key[0] = ege::keystate('Q');
+	key[1] = ege::keystate('W');
+	key[2] = ege::keystate('E');
+	key[3] = ege::keystate('R');
+	key[4] = ege::keystate('T');
+	// 0x2
+	key[5] = ege::keystate('A');
+	key[6] = ege::keystate('S');
+	key[7] = ege::keystate('D');
+	key[8] = ege::keystate('F');
+	key[9] = ege::keystate('G');
+	// 0x4
+	key[10] = ege::keystate('Z');
+	key[11] = ege::keystate('X');
+	key[12] = ege::keystate('C');
+	key[13] = ege::keystate('V');
+	key[14] = ege::keystate('B');
+
+	for (int i = 0; i < 15; i++) {
+		if (key[i] == false) {
+			key_pressed_flag[i] = false;
 		}
 	}
 }
@@ -160,12 +168,15 @@ bool key_pressed_func (int id_of_key, bool _pressed_key_ = true) {
 		return false;
 	}
 }
+int fps_count0 = 0;
+int fps_count = 30;
 
 #include "base64.hpp"
 char base64_in[] {"Hello World!"};
 uint8_t base64_out[tbz::base64::encode_out_size(sizeof(base64_in))];
+std::hash<const char*> hash_fn;
 
-uint8_t screen_buffer[128*128/2+2] = { 0x7f, 0x7f };
+uint8_t screen_buffer[128*128/2+2] = { 0x80, 0x80 };
 tbz::PIC screen_pic(screen_buffer, [](tbz::PIC& pic) {
 	pic.setMode(tbz::PIC::MODE::BIT4).setColor(0x01);
 });
@@ -201,17 +212,17 @@ void draw_screen(ege::PIMAGE img, int x, int y, int w, int h, int zoom = 1) {
 	}
 	// ege::rectangle(x-1, y-1, x+1+w, y+1+h);
 	// ege::putimage(x, y, img);
-	ege::rectangle(x-1, y-1, x+w*zoom+1, y+h*zoom+1);
+	// ege::rectangle(x-1, y-1, x+w*zoom+1, y+h*zoom+1);
 	ege::putimage(x, y, w*zoom, h*zoom, img, 0, 0, ege::getwidth(img), ege::getheight(img));
 }
 void after_frames(void) {
 	// static int t = clock();
 	// draw_screen(ege_draw_image, 100, 100, 128, 128, 4);
 
+	key_input();
 	ege::setcolor(EGERGB(255, 255, 255));
-	ege::xyprintf(10, 10, "FPS: %.1f", ege::getfps());
-	// ege::xyprintf(10, 10, "FPS: %05.1f", 1000.0/(clock()-t));
-	// t = clock();
+	std::string title = std::format("NESPP - FPS: {: >4.1f}", ege::getfps());
+	ege::setcaption(title.c_str());
 	ege::delay_fps(60);
 	ege::cleardevice();
 }
@@ -476,9 +487,54 @@ void draw_screen2(ege::PIMAGE pic, int x, int y, int w, int h, int zoom = 1) {
 	screen_pic.clear();
 }
 
+// #include "qrcode.hpp"
+
+
+enum class WINDOW {
+	unexist_scene,   // 不存在的场景
+	fade_animation,
+	layer_in_animation,
+	layer_out_animation,
+	window_start_animation,
+	alert,
+
+	normal_status
+
+} now_scene = WINDOW::normal_status, next_scene = WINDOW::unexist_scene;
+
+// u8g2_font_NokiaSmallBold_tf
+
+
+
+void fade_to_next_scene(APP_ENUM app) {
+	// swap_animation(u8g2);
+	next_scene = now_scene;
+	now_scene = WINDOW::fade_animation;
+	now_app = app;
+}
+void next_scene_func(WINDOW scene) {
+	now_scene = scene;
+}
+
+int get_sys_hour(void) {
+	return time(nullptr)/3600%24;
+}
+int get_sys_min(void) {
+	return time(nullptr)/60%60;
+}
+int get_sys_sec(void) {
+	return time(nullptr)%60;
+}
+
+#include "tinyexpr.h"
+
+#include "list_selector.hpp"
+
+tbz::LIST_SELECTOR list_selector;
+
 int main (int argc, char* argv[]) {
 	ege::setinitmode (INIT_RENDERMANUAL);
-	ege::initgraph (700, 700);
+	ege::initgraph (640, 640);
 	ege::setbkmode (TRANSPARENT);
 	srand(time(nullptr));
 	// FT_LIBRARY library;                         //FreeType库的句柄
@@ -520,10 +576,13 @@ int main (int argc, char* argv[]) {
 	dice.setPic(&screen_pic).setup();
 	spider_web.setPic(&screen_pic).setup();
 	// sound_wave.setPic(&screen_pic).setup();
-	// list_selector.set_U8G2(&u8g2);
+	list_selector.set_U8G2(&u8g2);
 	app_selector.set_U8G2(&u8g2);
 	app_selector.setPIC(&screen_pic);
 	// app_selector.setTime(sTime);
+
+	// tbz::QRCode<3> qrcode;
+	// qrcode.setPic(&screen_pic).setContent("Hello, World!");
 
 	ani1.set_U8G2(&u8g2);
 	ani2.set_U8G2(&u8g2);
@@ -531,38 +590,39 @@ int main (int argc, char* argv[]) {
 
 	for (;ege::is_run();frames_count++, after_frames()) {
 
-		u8g2.setFont(u8g2_font_wqy16_t_gb2312);
-		// u8g2.drawUTF8(10, 20, "你好世界Innovation in China");
-		cleardevice(ege_draw_image);
-		screen_pic.clear();
-		u8g2.clearBuffer();
-		screen_pic.setColor(0xf);
-		dice.draw();
-		draw_screen2(ege_draw_image, 100, 100, 128, 128, 1);
-		spider_web.draw();
-		draw_screen2(ege_draw_image, 228, 100, 128, 128, 1);
-		screen_pic.setColor(0x8);
-		hanoi.start_scene();
-		draw_screen2(ege_draw_image, 356, 100, 128, 128, 1);
-		screen_pic.setColor(0xa);
-		snake.game();
-		draw_screen2(ege_draw_image, 484, 100, 128, 128, 1);
-		rwf.draw(500);
-		draw_screen2(ege_draw_image, 100, 228, 128, 128, 1);
-		sw.draw(10, 10, 10);
-		draw_screen2(ege_draw_image, 228, 228, 128, 128, 1);
-		mag.draw();
-		draw_screen2(ege_draw_image, 356, 228, 128, 128, 1);
-		ani1.draw();
-		ani2.draw();
-		draw_screen2(ege_draw_image, 484, 228, 128, 128, 1);
-		app_selector.draw();
-		draw_screen2(ege_draw_image, 100, 356, 128, 128, 1);
-		screen_pic.setColor(0xf);
-		drawFreeType_str(0, 16, strw);
-		draw_screen2(ege_draw_image, 228, 356, 128, 128, 1);
-		show_keyboard(screen_pic);
-		draw_screen2(ege_draw_image, 356, 356, 128, 128, 1);
+		// qrcode.draw();
+		// u8g2.setFont(u8g2_font_wqy16_t_gb2312);
+		// // u8g2.drawUTF8(10, 20, "你好世界Innovation in China");
+		// cleardevice(ege_draw_image);
+		// screen_pic.clear();
+		// u8g2.clearBuffer();
+		// screen_pic.setColor(0xf);
+		// dice.draw();
+		// draw_screen2(ege_draw_image, 100, 100, 128, 128, 1);
+		// spider_web.draw();
+		// draw_screen2(ege_draw_image, 228, 100, 128, 128, 1);
+		// screen_pic.setColor(0x8);
+		// hanoi.start_scene();
+		// draw_screen2(ege_draw_image, 356, 100, 128, 128, 1);
+		// screen_pic.setColor(0xa);
+		// snake.game();
+		// draw_screen2(ege_draw_image, 484, 100, 128, 128, 1);
+		// rwf.draw(500);
+		// draw_screen2(ege_draw_image, 100, 228, 128, 128, 1);
+		// sw.draw(10, 10, 10);
+		// draw_screen2(ege_draw_image, 228, 228, 128, 128, 1);
+		// mag.draw();
+		// draw_screen2(ege_draw_image, 356, 228, 128, 128, 1);
+		// ani1.draw();
+		// ani2.draw();
+		// draw_screen2(ege_draw_image, 484, 228, 128, 128, 1);
+		// app_selector.draw();
+		// draw_screen2(ege_draw_image, 100, 356, 128, 128, 1);
+		// screen_pic.setColor(0xf);
+		// drawFreeType_str(0, 16, strw);
+		// draw_screen2(ege_draw_image, 228, 356, 128, 128, 1);
+		// show_keyboard(screen_pic);
+		// draw_screen2(ege_draw_image, 356, 356, 128, 128, 1);
 		// screen_pic.drawXBMP(0, 0, 64, 64, tsetBones+2);
 		// screen_pic.drawXBMP(64, 0, 64, 64, tsetLava+2);
 		// screen_pic.drawXBMP(0, 64, 64, 64, tsetSand+2);
@@ -593,22 +653,241 @@ int main (int argc, char* argv[]) {
 		// screen_pic.draw1BitXBMP(96, 55, 32, 32, tfont32[3].mask);
 		// screen_pic.draw1BitXBMP(128, 55, 32, 32, tfont32[4].mask);
 
-		setFont(font_fixedsys);
-		std::string str;
-		for (int i = 0; i < 95; i++) {
-			// str += "Hello World"sv;
-			// str += "B"sv;
-			str += (char)(' '+i);
-		}
-		screen_pic.setColor(0xf);
-		// drawStr(0, 0, str.c_str());
-		screen_pic.setColor(0xa);
-		// drawGBK(hz16, 0, 77, "");
-		screen_pic.setColor(0xf);
-		// char str [] {"\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7"};
-		drawGBK(0, 0, test_str_1);
-		draw_screen2(ege_draw_image, 484, 356, 128, 128, 1);
+		// setFont(font_fixedsys);
+		// std::string str;
+		// for (int i = 0; i < 95; i++) {
+		// 	// str += "Hello World"sv;
+		// 	// str += "B"sv;
+		// 	str += (char)(' '+i);
+		// }
+		// screen_pic.setColor(0xf);
+		// // drawStr(0, 0, str.c_str());
+		// screen_pic.setColor(0xa);
+		// // drawGBK(hz16, 0, 77, "");
+		// screen_pic.setColor(0xf);
+		// // char str [] {"\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7"};
+		// drawGBK(0, 0, test_str_1);
+		// draw_screen2(ege_draw_image, 484, 356, 128, 128, 1);
 
+
+	// while (true) {
+		// 最高层级的弹窗
+		if (key_pressed_func(4)) {
+			switch(now_scene) {
+				default: {
+					next_scene = now_scene;
+					now_scene = WINDOW::alert;
+				} break;
+				case WINDOW::alert: {
+					now_scene = next_scene;
+				}
+			}
+		}
+
+
+		// 退出 APP 的动画
+		if (key_pressed_func(9)) {
+			if (now_app != APP_ENUM::main) {
+				next_app = APP_ENUM::main;
+				fade_to_next_scene(next_app);
+				app_selector.slide_in();
+			}
+		}
+
+		// screen_pic.clear();
+		screen_pic.fade_clear2();
+		// 当前场景（部分动画或者弹窗依赖此状态）
+		switch (now_scene) {
+			case WINDOW::fade_animation: {
+				tbz::animation::slide(&u8g2, now_scene, next_scene);
+			} break;
+			case WINDOW::alert: {
+				tbz::ui::menu::alert::draw(&u8g2);
+			} break;
+
+			case WINDOW::normal_status: {
+				switch (now_app) {
+					case APP_ENUM::main: {
+						if (key_pressed_func(0)) {
+							app_selector.select_prev_app();
+						}
+						if (key_pressed_func(10)) {
+							app_selector.select_next_app();
+						}
+						if (key_pressed_func(5)) {
+							next_app = static_cast<APP_ENUM>(tbz::APP::now_select_app_id);
+							fade_to_next_scene(next_app);
+						}
+						app_selector.setFPS(fps_count/0.5);
+						app_selector.draw();
+					} break;
+					case APP_ENUM::SNAKE_GAME: {
+						if (key_pressed_func(1)) {
+							snake.move_left();
+						}
+						if (key_pressed_func(11)) {
+							snake.move_right();
+						}
+						if (key_pressed_func(6)) {
+							snake.move_down();
+						}
+						if (key_pressed_func(7)) {
+							snake.move_up();
+						}
+						if (key_pressed_func(2)) {
+							snake.speed_down();
+						}
+						if (key_pressed_func(12)) {
+							snake.speed_up();
+						}
+						snake.game();
+					} break;
+					case APP_ENUM::ui_test3: {
+						u8g2.drawBox(0,0,20,20);
+						u8g2.drawBox(20,20,20,20);
+						u8g2.drawFrame(10,40,20,20);
+						u8g2.setFont(u8g2_font_DigitalDiscoThin_tf);
+						sprintf(buf,"%d",114514);
+						u8g2.drawStr(0,20,buf);
+					} break;
+					// case APP_ENUM::qrcode_test: {
+					// 	qrcode.draw();
+					// } break;
+					case APP_ENUM::animation1: {
+						alert_font = u8g2_font_wqy16_t_gb2312;
+						sprintf(alert_message, "你好，世界");
+						u8g2.setFont(u8g2_font_wqy16_t_gb2312);
+						int w = u8g2.getUTF8Width(alert_message);
+						int h = u8g2.getMaxCharHeight();
+						u8g2.drawUTF8(64-w/2, 64-h/2, "你好，世界");
+						ani1.draw();
+						ani2.draw();
+					} break;
+					// case APP_ENUM::adc_animation: {
+					// 	// 动画2
+					// 	rwf.draw(adc_value2[0]*1000/65536);
+					// 	sound_wave.draw();
+					// } break;
+					case APP_ENUM::animation3: {
+						// 动画3
+						sw.draw(get_sys_hour(), get_sys_min(), get_sys_sec());
+					} break;
+					case APP_ENUM::HANOI_GAME: {
+						if (key_pressed_func(1)) {
+							hanoi.cursor_left();
+						}
+						if (key_pressed_func(11)) {
+							hanoi.cursor_right();
+						}
+						if (key_pressed_func(6)) {
+							hanoi.cursor_select();
+						}
+						alert_font = u8g2_font_wqy16_t_gb2312;
+						sprintf(alert_message, "汉诺塔");
+						hanoi.start_scene();
+					} break;
+					case APP_ENUM::WELCOM_SCENE: {
+						alert_font = u8g2_font_NokiaSmallBold_tf;
+						sprintf(alert_message, "WELCOM TO PLAY!");
+						hanoi.welcom_scene();
+					} break;
+					case APP_ENUM::art_generator: {
+						if (key_pressed_func(0)) {
+							mag.random_to_next();
+						}
+						mag.draw();
+					} break;
+					case APP_ENUM::ui_test: {
+						if (key_pressed_func(5, false)) {
+							list_selector.select_next_item();
+						}
+						if (key_pressed_func(6, false)) {
+							list_selector.select_prev_item();
+						}
+						list_selector.draw();
+					} break;
+					case APP_ENUM::key_test: {
+						alert_font = u8g2_font_NokiaSmallBold_tf;
+						sprintf(alert_message, "Hello World!");
+						u8g2.clearBuffer();
+						u8g2.setFont(u8g2_font_6x10_tf);
+						// u8g2.setContrast(25);
+						u8g2.drawStr(0, 10, "Hello World!");
+
+						auto pressed_key_count = show_keyboard(screen_pic);
+
+						sprintf (buf, "pressed:%d", pressed_key_count);
+						u8g2.drawStr(0, 20, buf);
+						sprintf (buf, "hash:%x", hash_fn("hello world!"));
+						u8g2.drawStr(0, 110, buf);
+						u8g2.setFont(u8g2_font_6x10_tf);
+						u8g2.drawStr(0, 120, (const char*)base64_out);
+
+					} break;
+					case APP_ENUM::ui_test2: {
+						u8g2.clearBuffer();
+						for (int i = 0; i < 128; i++) {
+							for (int j = 0; j < 128; j++) {
+								if (i < 64 || i > 128 || j < 20 || j > 44)
+								if ((i^j)&1) u8g2.drawPixel(i, j);
+							}
+						}
+						// u8g2.drawLine(64, 20, 128, 20);
+						// u8g2.drawLine(64, 20, 64, 44);
+						// u8g2.drawLine(128,20, 128,44);
+						// u8g2.drawLine(64,44,128,44);
+						u8g2.drawStr(33,38, "WARNING");
+						// u8g2.drawRBox()
+						// u8g2.drawBox(64, 20, 64, 24);
+						int error;
+
+						// int a = (int)te_interp("(5+5)", 0); // Returns 10.
+						int b = (int)te_interp("(5+5)", &error); // Returns 10, error is set to 0.
+						// int c = (int)te_interp("(5+5", &error);
+						sprintf(buf, "(5+5)=%d", b);
+						u8g2.drawStr(0, 70, buf);
+					} break;
+					case APP_ENUM::MINESWEEPER_GAME: {
+						// draw_pic(&u8g2, 0, 0, psychic_swamp);
+						// draw_pic(&u8g2, 0, 0, tsetBones);
+						// screen_pic.setMode(tbz::PIC::MODE::BIT4);
+						screen_pic.drawXBMP(0, 0, 64, 64, tsetBones+2);
+						screen_pic.drawXBMP(64, 0, 64, 64, tsetLava+2);
+						screen_pic.drawXBMP(0, 64, 64, 64, tsetSand+2);
+						screen_pic.drawXBMP(64, 64, 64, 64, tsetTower+2);
+					} break;
+					case APP_ENUM::TETRIS_GAME: {
+						dice.draw();
+					} break;
+					// case APP_ENUM::streamer: {
+					// 	streamer.draw();
+					// } break;
+					default: {
+						u8g2.clearBuffer();
+						u8g2.setFont(u8g2_font_wqy16_t_gb2312);
+						sprintf(buf, "-无信号-");
+						int str_w = u8g2.getUTF8Width(buf);
+						u8g2.drawUTF8(64-str_w/2, 64+16/2, buf);
+					} break;
+				}
+			} break;
+
+
+			// case WINDOW::unexist_scene:
+			default: {
+				now_scene = WINDOW::normal_status;
+			} break;
+		}
+
+
+		screen_pic.setColor(0x3);
+		ani1.draw2(screen_pic);
+		ani2.draw2(screen_pic);
+
+		spider_web.draw();
+
+		draw_screen2(ege_draw_image, 0, 0, 128, 128, 5);
+		fps_count0 ++;
 		// screen_pic.drawRBox(10, 10, 20, 20, 3);
 
 		// char c = ' ';
@@ -620,8 +899,9 @@ int main (int argc, char* argv[]) {
 		// }
 		// drawGlyph(0, 0, '!');
 
-	}
+	// }
 
+	}
 		/* 释放资源 */
 	// FT_Done_Glyph((FT_Glyph)g.handle);
 	// FT_Done_FreeType(font_info.library);
