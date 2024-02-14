@@ -1,5 +1,6 @@
 #define SHOW_CONSOLE
 #include "graphics.h"
+
 #include <iostream>
 #include <algorithm>
 #include <ranges>
@@ -19,73 +20,11 @@ using namespace std::literals;
 #include "libxbmp_extend.hpp"
 #include "libxbmp.hpp"
 
-#include "u8g2.h"
-#include "U8g2lib.h"
 
-
-uint8_t u8x8_byte_4wire_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int,void *arg_ptr) {
-	return 0;
-}
-
-uint8_t u8x8_gpio_and_delay(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr) {
-	return 0;
-}
-
-class U8G2_SSD1327_MIDAS_128X128_f_4W_HW_SPI : public U8G2 {
-	public: U8G2_SSD1327_MIDAS_128X128_f_4W_HW_SPI(const u8g2_cb_t *rotation) : U8G2() {
-		u8g2_Setup_ssd1327_midas_128x128_f(&u8g2, rotation, u8x8_byte_4wire_hw_spi, u8x8_gpio_and_delay);
-	}
-};
-
+#include "u8g2_port_to_ege.hpp"
 #include "freetype.hpp"
+#include "key_process.hpp"
 
-
-// enum KEY_VK {
-// 	VK_LEFT = 0,
-// 	VK_RIGHT = 10
-// };
-
-uint8_t keyboard[8] {0,0,0,0,0,0,0,0};
-bool key[16] {false};               // 锟斤拷一锟斤拷扫锟借被锟斤拷锟铰的帮拷锟斤拷
-bool key_pressed_flag[16] {false};  // 锟斤拷锟轿帮拷锟斤拷
-
-void key_input(void) {
-	// 0x1
-	key[0] = ege::keystate('Q');
-	key[1] = ege::keystate('W');
-	key[2] = ege::keystate('E');
-	key[3] = ege::keystate('R');
-	key[4] = ege::keystate('T');
-	// 0x2
-	key[5] = ege::keystate('A');
-	key[6] = ege::keystate('S');
-	key[7] = ege::keystate('D');
-	key[8] = ege::keystate('F');
-	key[9] = ege::keystate('G');
-	// 0x4
-	key[10] = ege::keystate('Z');
-	key[11] = ege::keystate('X');
-	key[12] = ege::keystate('C');
-	key[13] = ege::keystate('V');
-	key[14] = ege::keystate('B');
-
-	for (int i = 0; i < 15; i++) {
-		if (key[i] == false) {
-			key_pressed_flag[i] = false;
-		}
-	}
-}
-
-
-
-bool key_pressed_func (int id_of_key, bool _pressed_key_ = true) {
-	if (key[id_of_key] && !key_pressed_flag[id_of_key]) {
-		key_pressed_flag[id_of_key] = _pressed_key_;
-		return true;
-	} else {
-		return false;
-	}
-}
 int fps_count0 = 0;
 int fps_count = 30;
 
@@ -244,10 +183,6 @@ tbz::SPRITE_ANIMATION<10> ani2(snow_animation_pic+72, 54, 8, 8, 8, 128, 128, 6);
 tbz::APP_SELECTOR app_selector;
 
 
-
-
-
-
 int show_keyboard(tbz::PIC& pic) {
 	int pressed_key_count = 0;
 	for (int i = 0; i < 3; i++) {
@@ -270,7 +205,7 @@ int show_keyboard(tbz::PIC& pic) {
 	return pressed_key_count;
 }
 
-	U8G2_SSD1327_MIDAS_128X128_f_4W_HW_SPI u8g2(U8G2_R0);
+U8G2_SSD1327_MIDAS_128X128_f_4W_HW_SPI u8g2(U8G2_R0);
 
 void draw_screen2(ege::PIMAGE pic, int x, int y, int w, int h, int zoom = 1) {
 	trans_u8g2buffer_to_4bitxbmp(u8g2.getBufferPtr(), screen_buffer+2, 128, 128);
@@ -557,13 +492,13 @@ int main (int argc, char* argv[]) {
 						// u8g2.drawBox(64, 20, 64, 24);
 					} break;
 					case APP_ENUM::MINESWEEPER_GAME: {
-						// draw_pic(&u8g2, 0, 0, psychic_swamp);
-						// draw_pic(&u8g2, 0, 0, tsetBones);
-						// screen_pic.setMode(tbz::PIC::MODE::BIT4);
-						screen_pic.drawXBMP(0, 0, 64, 64, tsetBones+2);
-						screen_pic.drawXBMP(64, 0, 64, 64, tsetLava+2);
-						screen_pic.drawXBMP(0, 64, 64, 64, tsetSand+2);
-						screen_pic.drawXBMP(64, 64, 64, 64, tsetTower+2);
+						// 绘制图片的时候应该考虑图源是多少bit的
+						// 通常来说不直接使用 drawXBMP，会导致图片无法正常显示
+						screen_pic.draw1BitXBMP(0, 0, psychic_swamp);
+						screen_pic.draw4BitXBMP(0, 0, tsetBones);
+						screen_pic.draw4BitXBMP(64, 0, tsetLava);
+						screen_pic.draw4BitXBMP(0, 64, tsetSand);
+						screen_pic.draw4BitXBMP(64, 64, tsetTower);
 					} break;
 					case APP_ENUM::TETRIS_GAME: {
 						dice.draw();
