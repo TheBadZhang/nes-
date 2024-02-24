@@ -232,8 +232,6 @@ enum class WINDOW {
 
 // u8g2_font_NokiaSmallBold_tf
 
-
-
 void fade_to_next_scene(APP_ENUM app) {
 	// swap_animation(u8g2);
 	next_scene = now_scene;
@@ -344,6 +342,7 @@ int main (int argc, char* argv[]) {
 				app_selector.slide_in();
 			}
 		}
+
 
 		// screen_pic.clear();
 		screen_pic.fade_clear2();
